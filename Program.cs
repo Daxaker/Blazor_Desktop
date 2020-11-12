@@ -16,6 +16,7 @@ using WebWindows.Blazor;
 using Veldrid;
 using Veldrid.Sdl2;
 using Veldrid.StartupUtilities;
+using WebWindows;
 using Encoding = System.Text.Encoding;
 
 namespace Blazor_Desktop
@@ -25,6 +26,7 @@ namespace Blazor_Desktop
         public static void Main(string[] args)
         {
             ComponentsDesktop.Run<Startup>("AppWnd", "wwwroot/index.html");
+            
             //Render();
         }
     }

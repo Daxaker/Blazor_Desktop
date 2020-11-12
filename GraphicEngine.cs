@@ -115,7 +115,7 @@ void main()
 			var pixelFormat = PixelFormat.B8_G8_R8_A8_UNorm; // <- PixelFormat.B8_G8_R8_A8_UNorm, is it OK?
 
 			var textureDescription =
-				TextureDescription.Texture2D(800, 600, 1, 1, PixelFormat.B8_G8_R8_A8_UNorm, TextureUsage.RenderTarget);
+				TextureDescription.Texture2D(640, 480, 1, 1, PixelFormat.B8_G8_R8_A8_UNorm, TextureUsage.RenderTarget);
 			textureDescription.Type = TextureType.Texture2D;
 			textureDescription.Format = pixelFormat;
 
@@ -165,12 +165,9 @@ void main()
 			_pipeline = _graphicsDevice.ResourceFactory.CreateGraphicsPipeline(pipelineDescription);
 		}
 
-		private void RedrawContent()
+		private void RedrawContent(double deltaTime)
 		{
-			if (renderTime is null)
-				renderTime = DateTime.Now;
-			var deltaTime = (DateTime.Now - renderTime).Value;
-			var theta = ((float) deltaTime.Milliseconds / 1000) * Math.PI;
+			var theta =  deltaTime * Math.PI;
 			for (int i = 0; i < _quadVertices.Length; i++)
 			{
 				var p = _quadVertices[i].Position;
@@ -203,8 +200,10 @@ void main()
 
 			_commandList.Begin();
 			_commandList.SetFramebuffer(_offscreenFrameBuffer);
-
-			RedrawContent();
+			if (renderTime is null)
+				renderTime = DateTime.Now;
+			var deltaTime = (DateTime.Now - renderTime).Value.TotalMilliseconds / 1000;
+			RedrawContent(deltaTime);
 			var textureForRender = _offscreenFrameBuffer.ColorTargets[0].Target;
 			 _commandList.CopyTexture(
 			 	textureForRender, 0, 0, 0, 0, 0,
@@ -216,26 +215,25 @@ void main()
 			//_graphicsDevice.WaitForIdle();
 			MappedResourceView<Rgba32> map = _graphicsDevice.Map<Rgba32>(_stage, MapMode.Read);
 
-			//Rgba32[] pixelData = new Rgba32[stage.Width * stage.Height];
-			Image<Rgba32> img = new Image<Rgba32>((int) _stage.Width, (int) _stage.Height);
+			Rgba32[] pixelData = new Rgba32[_stage.Width * _stage.Height];
 			for (int y = 0; y < _stage.Height; y++)
 			{
 				for (int x = 0; x < _stage.Width; x++)
 				{
-					//int index = (int)(y * stage.Width + x);
-					img[x, y] = map[x, y]; // <- I have to convert BRGA to RGBA pixels here
+					int index = (int)(y * _stage.Width + x);
+					pixelData[index] = map[x, y];
 				}
 			}
+			_graphicsDevice.Unmap(_stage); // Resources should be Unmapped when the region is no longer used.
 
-			_graphicsDevice.Unmap(_stage);
+			Image<Rgba32> outputImage = Image.LoadPixelData(pixelData, (int)_stage.Width, (int)_stage.Height);
 			using var stream = new MemoryStream();
-			img.SaveAsBmp(stream);
+			outputImage.SaveAsBmp(stream);
 			
 			Complete = true;
 
 			FrameTime = sw.ElapsedMilliseconds;
 			var convert = Convert.ToBase64String(stream.ToArray());
-			ConvertTime = sw.ElapsedMilliseconds;
 			renderTime = DateTime.Now;
 			return convert;
 		}

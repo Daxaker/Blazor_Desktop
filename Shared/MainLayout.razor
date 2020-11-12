@@ -1,4 +1,7 @@
-﻿@inherits LayoutComponentBase
+﻿@using Blazor.Extensions.Canvas.Canvas2D
+@using Blazor.Extensions
+@using System.Diagnostics
+@inherits LayoutComponentBase
 @inject GraphicEngine gEngine;
 @* <div class="sidebar"> *@
 @*     <NavMenu /> *@
@@ -10,29 +13,58 @@
     @*     <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a> *@
     @* </div> *@
 
-    <p>FrameTime: @gEngine.FrameTime ms</p>
-    <p>ConvertTime: @gEngine.ConvertTime ms</p>
-
-    <div class="content px-4">
-        <img src=@($"data:image/png;base64,{@base64string}")>
-        @* @Body *@
-    </div>
+    <p>Backend fps: @(gEngine.FrameTime == 0 ? 0 : 1000 / gEngine.FrameTime)</p>
+    <p>fps: @fps</p>
+    <p>Frames loss: @frameLoss</p>
+@*     <div class="content px-4"> *@
+    <img src=@($"data:image/png;base64,{@base64string}")>
+@*         @* @Body *@
+@*     </div> *@
 </div>
 
 @code{
     System.Threading.Timer timer;
     private string base64string;
 
+    long frameCount = 0;
+    long skippedFrames = 0;
+    float frameLoss = 0;
+    long fps = 0;
+    //DateTime lastUpdate = DateTime.Now;
+    bool pageRendered = true;
     protected override void OnInitialized()
     {
+        Stopwatch sw = new Stopwatch();
+        sw.Start();
         timer = new System.Threading.Timer(async _ =>
         {
-            if (gEngine.Complete)
+            
+            if (sw.Elapsed.Seconds >= 1)
             {
-                base64string = gEngine.GetImage();
-                await InvokeAsync(StateHasChanged);
+                fps = frameCount;
+                frameLoss = skippedFrames;
+                frameCount = 0;
+                skippedFrames = 0;
+                sw.Restart();
             }
-        }, null, 0, 33);
+            if (pageRendered)
+            {
+                pageRendered = false;
+                frameCount++;
+                if (gEngine.Complete)
+                {
+                    base64string = gEngine.GetImage();
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+            }
+            skippedFrames++;
+        }, null, 0, 16);
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        pageRendered = true;
     }
 
 }

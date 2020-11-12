@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Veldrid;
+using WebWindows;
 using WebWindows.Blazor;
 
 namespace Blazor_Desktop
@@ -28,6 +29,11 @@ namespace Blazor_Desktop
         public void Configure(DesktopApplicationBuilder app)
         {
             app.AddComponent<App>("app");
+            
+            WebWindow webWindow = app.Services.GetService<WebWindow>();
+
+            webWindow.Width = 750;
+            webWindow.Height = 760;
         }
     }
 }

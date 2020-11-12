@@ -76,10 +76,10 @@ void main()
 
 			_quadVertices = new[]
 			{
-				new VertexPositionColor(new Vector2(-.75f, .75f), RgbaFloat.Red),
-				new VertexPositionColor(new Vector2(.75f, .75f), RgbaFloat.Green),
-				new VertexPositionColor(new Vector2(-.75f, -.75f), RgbaFloat.Blue),
-				new VertexPositionColor(new Vector2(.75f, -.75f), RgbaFloat.Yellow),
+				new VertexPositionColor(new Vector2(-1, 1), RgbaFloat.Red),
+				new VertexPositionColor(new Vector2(1, 1), RgbaFloat.Green),
+				new VertexPositionColor(new Vector2(-1, -1), RgbaFloat.Blue),
+				new VertexPositionColor(new Vector2(1, -1), RgbaFloat.Yellow),
 			};
 
 			BufferDescription vbDescription = new BufferDescription(
@@ -126,11 +126,20 @@ void main()
 			_offscreenFrameBuffer = _graphicsDevice.ResourceFactory.CreateFramebuffer(framebufferDescription);
 
 			CreatePipeline(vertexLayout, _offscreenFrameBuffer);
-
+			
+			_stage = _graphicsDevice.ResourceFactory.CreateTexture(TextureDescription.Texture2D(
+				textureForRender.Width,
+				textureForRender.Height,
+				1,
+				1,
+				PIXEL_FORMAT,
+				TextureUsage.Staging));
+			
 			_commandList = factory.CreateCommandList();
 			_commandList.SetFramebuffer(_offscreenFrameBuffer);
 		}
 
+		private Texture _stage;
 		private void CreatePipeline(VertexLayoutDescription vertexLayout, Framebuffer frameBuffer)
 		{
 			GraphicsPipelineDescription pipelineDescription = new GraphicsPipelineDescription();
@@ -156,19 +165,18 @@ void main()
 			_pipeline = _graphicsDevice.ResourceFactory.CreateGraphicsPipeline(pipelineDescription);
 		}
 
-		private float speed = 1f / (3f * 1000); //1 revolation in 2 seconds
-
 		private void RedrawContent()
 		{
 			if (renderTime is null)
 				renderTime = DateTime.Now;
 			var deltaTime = (DateTime.Now - renderTime).Value;
-			var path = deltaTime.Milliseconds * speed;
+			var theta = ((float) deltaTime.Milliseconds / 1000) * Math.PI;
 			for (int i = 0; i < _quadVertices.Length; i++)
 			{
-				var c = _quadVertices[i].Color;
-				var newC = new RgbaFloat((c.R + (path * c.R)) % 1, (c.G + (path * c.G)) % 1, (c.B + (path * c.B)) % 1, 1);
-				_quadVertices[i].Color = newC;
+				var p = _quadVertices[i].Position;
+				var x = Math.Clamp(p.X * (float)Math.Cos(theta) - p.Y * (float)Math.Sin(theta), -1, 1);
+				var y = Math.Clamp(p.X * (float)Math.Sin(theta) + p.Y * (float)Math.Cos(theta), -1, 1);
+				_quadVertices[i].Position = new Vector2(x, y);
 			}
 
 			_graphicsDevice.UpdateBuffer(_vertexBuffer, 0, _quadVertices);
@@ -192,49 +200,43 @@ void main()
 			Stopwatch sw = new Stopwatch();
 			sw.Start();
 			Complete = false;
-			var textureForRender = _offscreenFrameBuffer.ColorTargets[0].Target;
-			Texture stage = _graphicsDevice.ResourceFactory.CreateTexture(TextureDescription.Texture2D(
-				textureForRender.Width,
-				textureForRender.Height,
-				1,
-				1,
-				PIXEL_FORMAT,
-				TextureUsage.Staging));
 
 			_commandList.Begin();
 			_commandList.SetFramebuffer(_offscreenFrameBuffer);
 
 			RedrawContent();
-
-			_commandList.CopyTexture(
-				textureForRender, 0, 0, 0, 0, 0,
-				stage, 0, 0, 0, 0, 0,
-				stage.Width, stage.Height, 1, 1);
+			var textureForRender = _offscreenFrameBuffer.ColorTargets[0].Target;
+			 _commandList.CopyTexture(
+			 	textureForRender, 0, 0, 0, 0, 0,
+			 	_stage, 0, 0, 0, 0, 0,
+			 	_stage.Width, _stage.Height, 1, 1);
 			_commandList.End();
 
 			_graphicsDevice.SubmitCommands(_commandList);
 			//_graphicsDevice.WaitForIdle();
-			MappedResourceView<Rgba32> map = _graphicsDevice.Map<Rgba32>(stage, MapMode.Read);
+			MappedResourceView<Rgba32> map = _graphicsDevice.Map<Rgba32>(_stage, MapMode.Read);
 
 			//Rgba32[] pixelData = new Rgba32[stage.Width * stage.Height];
-			Image<Rgba32> img = new Image<Rgba32>((int) stage.Width, (int) stage.Height);
-			for (int y = 0; y < stage.Height; y++)
+			Image<Rgba32> img = new Image<Rgba32>((int) _stage.Width, (int) _stage.Height);
+			for (int y = 0; y < _stage.Height; y++)
 			{
-				for (int x = 0; x < stage.Width; x++)
+				for (int x = 0; x < _stage.Width; x++)
 				{
 					//int index = (int)(y * stage.Width + x);
 					img[x, y] = map[x, y]; // <- I have to convert BRGA to RGBA pixels here
 				}
 			}
 
-			_graphicsDevice.Unmap(stage);
+			_graphicsDevice.Unmap(_stage);
 			using var stream = new MemoryStream();
-			// 	File.Create(@"C:\Users\dx\Development\veldrid-samples\bin\Debug\GettingStarted\netcoreapp3.0\image.bmp");
 			img.SaveAsBmp(stream);
+			
 			Complete = true;
+
 			FrameTime = sw.ElapsedMilliseconds;
 			var convert = Convert.ToBase64String(stream.ToArray());
 			ConvertTime = sw.ElapsedMilliseconds;
+			renderTime = DateTime.Now;
 			return convert;
 		}
 

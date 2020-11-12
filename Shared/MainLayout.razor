@@ -4,6 +4,7 @@
 @*     <NavMenu /> *@
 @* </div> *@
 @* *@
+
 <div class="main">
     @* <div class="top-row px-4"> *@
     @*     <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a> *@
@@ -11,6 +12,7 @@
 
     <p>FrameTime: @gEngine.FrameTime ms</p>
     <p>ConvertTime: @gEngine.ConvertTime ms</p>
+
     <div class="content px-4">
         <img src=@($"data:image/png;base64,{@base64string}")>
         @* @Body *@
@@ -18,20 +20,22 @@
 </div>
 
 @code{
-	//[Inject] private GraphicEngine gEngine { get; set; }
-	System.Threading.Timer timer;
-	private string base64string;
-	protected override void OnInitialized()
-	{
-		//base64string = gEngine.GetImage();
-		timer = new System.Threading.Timer(async _ =>
-		{
-			if (gEngine.Complete)
-			{
-				base64string = gEngine.GetImage();
-				await InvokeAsync(StateHasChanged);
-			}
-		}, null, 0, 15);
-	}
+    //[Inject] private GraphicEngine gEngine { get; set; }
+    System.Threading.Timer timer;
+    private string base64string;
+
+    protected override void OnInitialized()
+    {
+        //var cvs = document.getElementById("myCanvas");
+    //base64string = gEngine.GetImage();
+        timer = new System.Threading.Timer(async _ =>
+        {
+            if (gEngine.Complete)
+            {
+                base64string = gEngine.GetImage();
+                await InvokeAsync(StateHasChanged);
+            }
+        }, null, 0, 33);
+    }
 
 }

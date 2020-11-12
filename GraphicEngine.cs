@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
@@ -13,6 +15,10 @@ namespace Blazor_Desktop
 {
 	public class GraphicEngine : IDisposable
 	{
+		public long FrameTime = 0;
+		public long ConvertTime = 0;
+		private DateTime? renderTime;
+
 		private readonly GraphicsDevice _graphicsDevice;
 		private CommandList _commandList;
 		private DeviceBuffer _vertexBuffer;
@@ -58,26 +64,29 @@ void main()
 
 			_graphicsDevice = GraphicsDevice.CreateD3D11(options);
 			CreateResources();
-
+			Complete = true;
 			//SaveScreenToFile();
 		}
+
+		private VertexPositionColor[] _quadVertices;
 
 		private void CreateResources()
 		{
 			ResourceFactory factory = _graphicsDevice.ResourceFactory;
 
-			VertexPositionColor[] quadVertices =
+			_quadVertices = new[]
 			{
 				new VertexPositionColor(new Vector2(-.75f, .75f), RgbaFloat.Red),
 				new VertexPositionColor(new Vector2(.75f, .75f), RgbaFloat.Green),
 				new VertexPositionColor(new Vector2(-.75f, -.75f), RgbaFloat.Blue),
-				new VertexPositionColor(new Vector2(.75f, -.75f), RgbaFloat.Yellow)
+				new VertexPositionColor(new Vector2(.75f, -.75f), RgbaFloat.Yellow),
 			};
+
 			BufferDescription vbDescription = new BufferDescription(
 				4 * VertexPositionColor.SizeInBytes,
 				BufferUsage.VertexBuffer);
 			_vertexBuffer = factory.CreateBuffer(vbDescription);
-			_graphicsDevice.UpdateBuffer(_vertexBuffer, 0, quadVertices);
+			_graphicsDevice.UpdateBuffer(_vertexBuffer, 0, _quadVertices);
 
 			ushort[] quadIndices = {0, 1, 2, 3};
 			BufferDescription ibDescription = new BufferDescription(
@@ -147,10 +156,23 @@ void main()
 			_pipeline = _graphicsDevice.ResourceFactory.CreateGraphicsPipeline(pipelineDescription);
 		}
 
-	private void RedrawContent()
-		{
-			_commandList.ClearColorTarget(0, RgbaFloat.White);
+		private float speed = 1f / (3f * 1000); //1 revolation in 2 seconds
 
+		private void RedrawContent()
+		{
+			if (renderTime is null)
+				renderTime = DateTime.Now;
+			var deltaTime = (DateTime.Now - renderTime).Value;
+			var path = deltaTime.Milliseconds * speed;
+			for (int i = 0; i < _quadVertices.Length; i++)
+			{
+				var c = _quadVertices[i].Color;
+				var newC = new RgbaFloat((c.R + (path * c.R)) % 1, (c.G + (path * c.G)) % 1, (c.B + (path * c.B)) % 1, 1);
+				_quadVertices[i].Color = newC;
+			}
+
+			_graphicsDevice.UpdateBuffer(_vertexBuffer, 0, _quadVertices);
+			_commandList.ClearColorTarget(0, RgbaFloat.White);
 			// Set all relevant state to draw our quad.
 			_commandList.SetVertexBuffer(0, _vertexBuffer);
 			_commandList.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
@@ -164,8 +186,12 @@ void main()
 				instanceStart: 0);
 		}
 
+		public bool Complete { get; private set; }
 		public string GetImage()
 		{
+			Stopwatch sw = new Stopwatch();
+			sw.Start();
+			Complete = false;
 			var textureForRender = _offscreenFrameBuffer.ColorTargets[0].Target;
 			Texture stage = _graphicsDevice.ResourceFactory.CreateTexture(TextureDescription.Texture2D(
 				textureForRender.Width,
@@ -174,14 +200,6 @@ void main()
 				1,
 				PIXEL_FORMAT,
 				TextureUsage.Staging));
-
-			VertexLayoutDescription vertexLayout = new VertexLayoutDescription(
-				new VertexElementDescription("Position", VertexElementSemantic.TextureCoordinate,
-					VertexElementFormat.Float2),
-				new VertexElementDescription("Color", VertexElementSemantic.TextureCoordinate,
-					VertexElementFormat.Float4));
-
-			//CreatePipeline(vertexLayout, framebuffer);
 
 			_commandList.Begin();
 			_commandList.SetFramebuffer(_offscreenFrameBuffer);
@@ -213,7 +231,11 @@ void main()
 			using var stream = new MemoryStream();
 			// 	File.Create(@"C:\Users\dx\Development\veldrid-samples\bin\Debug\GettingStarted\netcoreapp3.0\image.bmp");
 			img.SaveAsBmp(stream);
-			return Convert.ToBase64String(stream.ToArray());
+			Complete = true;
+			FrameTime = sw.ElapsedMilliseconds;
+			var convert = Convert.ToBase64String(stream.ToArray());
+			ConvertTime = sw.ElapsedMilliseconds;
+			return convert;
 		}
 
 		private void DisposeResources()

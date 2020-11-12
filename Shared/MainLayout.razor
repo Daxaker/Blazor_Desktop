@@ -1,15 +1,37 @@
 ﻿@inherits LayoutComponentBase
-
-<div class="sidebar">
-    <NavMenu />
-</div>
-
+@inject GraphicEngine gEngine;
+@* <div class="sidebar"> *@
+@*     <NavMenu /> *@
+@* </div> *@
+@* *@
 <div class="main">
-    <div class="top-row px-4">
-        <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
-    </div>
+    @* <div class="top-row px-4"> *@
+    @*     <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a> *@
+    @* </div> *@
 
+    <p>FrameTime: @gEngine.FrameTime ms</p>
+    <p>ConvertTime: @gEngine.ConvertTime ms</p>
     <div class="content px-4">
-        @Body
+        <img src=@($"data:image/png;base64,{@base64string}")>
+        @* @Body *@
     </div>
 </div>
+
+@code{
+	//[Inject] private GraphicEngine gEngine { get; set; }
+	System.Threading.Timer timer;
+	private string base64string;
+	protected override void OnInitialized()
+	{
+		//base64string = gEngine.GetImage();
+		timer = new System.Threading.Timer(async _ =>
+		{
+			if (gEngine.Complete)
+			{
+				base64string = gEngine.GetImage();
+				await InvokeAsync(StateHasChanged);
+			}
+		}, null, 0, 15);
+	}
+
+}

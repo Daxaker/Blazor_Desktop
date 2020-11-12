@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Veldrid;
 using WebWindows.Blazor;
 
 namespace Blazor_Desktop
@@ -20,6 +21,7 @@ namespace Blazor_Desktop
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddTransient<FetchData.WeatherForecast>();
+            services.AddSingleton<GraphicEngine>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

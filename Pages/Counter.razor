@@ -1,7 +1,7 @@
 ﻿@page "/counter"
 
-<h1>Counter</h1>
+<h1>Render</h1>
 
-<p>Current count: @currentCount</p>
-
+<p>DirectX rendered bitmap</p>
+<img src=@($"data:image/png;base64,{@base64string}")>
 <button class="btn btn-primary" @onclick="IncrementCount">Click me</button>

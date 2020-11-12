@@ -20,14 +20,11 @@
 </div>
 
 @code{
-    //[Inject] private GraphicEngine gEngine { get; set; }
     System.Threading.Timer timer;
     private string base64string;
 
     protected override void OnInitialized()
     {
-        //var cvs = document.getElementById("myCanvas");
-    //base64string = gEngine.GetImage();
         timer = new System.Threading.Timer(async _ =>
         {
             if (gEngine.Complete)
